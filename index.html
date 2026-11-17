@@ -22,12 +22,12 @@ function exampleKey(w){return w.pageId+":"+w.id}
 function savedExample(w){return !!state.savedExamples?.[exampleKey(w)]}
 function toggleSavedExample(w){state.savedExamples||={};const k=exampleKey(w);if(state.savedExamples[k])delete state.savedExamples[k];else state.savedExamples[k]={savedAt:new Date().toISOString()};saveProgress()}
 function learningExtras(w){
- const ex=w.type==="compound"?"Please check the "+w.en+" before proceeding.":EXAMPLES[w.pair]?.[w.type==="person"?0:1]||"",zh=w.type==="compound"?"請在繼續前確認「"+w.zh+"」。":EXAMPLE_ZH[w.pair]?.[w.type==="person"?0:1]||"";
+ const ex=w.type==="compound"?"":EXAMPLES[w.pair]?.[w.type==="person"?0:1]||"",zh=w.type==="compound"?"":EXAMPLE_ZH[w.pair]?.[w.type==="person"?0:1]||"";
  return '<div class="learn-extra"><div class="pronounce-row"><span class="speaker-icon" aria-hidden="true">◖))</span><div class="accent-row">'+ACCENTS.map(([name,locale])=>'<button type="button" aria-label="'+name+'式英語發音" class="accent-btn '+(accent===locale?"active":"")+'" data-accent="'+locale+'">'+name+'</button>').join("")+'</div></div><p id="voice-note" class="muted" hidden></p><div class="example"><div class="example-top"><span class="muted">中翻英練習</span><button type="button" id="save-example" class="save-example" aria-pressed="'+savedExample(w)+'">'+(savedExample(w)?"★ 已收藏":"☆ 收藏")+'</button></div><p class="example-zh">'+escape(zh)+'</p><button class="secondary reveal-btn" id="reveal-example" type="button" aria-expanded="false" aria-controls="english-example">練習翻譯成英文　⌄</button><div id="english-example" hidden><div class="answer-pill"><span lang="en">'+escape(ex)+'</span><button type="button" id="example-speak" aria-label="播放英文例句">▶</button></div></div></div></div>';
 }
 function bindLearningExtras(w){
  document.querySelectorAll("[data-accent]").forEach(b=>b.onclick=()=>{accent=b.dataset.accent;localStorage.setItem("toeic-accent",accent);document.querySelectorAll("[data-accent]").forEach(x=>x.classList.toggle("active",x.dataset.accent===accent));speak(w.en,accent)});
- const example=w.type==="compound"?"Please check the "+w.en+" before proceeding.":EXAMPLES[w.pair]?.[w.type==="person"?0:1],reveal=document.querySelector("#reveal-example"),english=document.querySelector("#english-example");
+ const example=w.type==="compound"?"":EXAMPLES[w.pair]?.[w.type==="person"?0:1],reveal=document.querySelector("#reveal-example"),english=document.querySelector("#english-example");
  if(reveal&&english)reveal.onclick=()=>{english.hidden=!english.hidden;reveal.textContent=english.hidden?"練習翻譯成英文　⌄":"收起英文答案　⌃";reveal.setAttribute("aria-expanded",String(!english.hidden))};
  const b=document.querySelector("#example-speak");if(b&&example)b.onclick=()=>speak(example);
  const saveBtn=document.querySelector("#save-example");if(saveBtn)saveBtn.onclick=()=>{toggleSavedExample(w);saveBtn.textContent=savedExample(w)?"★ 已收藏":"☆ 收藏";saveBtn.setAttribute("aria-pressed",String(savedExample(w)))};

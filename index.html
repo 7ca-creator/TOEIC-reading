@@ -23,13 +23,13 @@ function learningExtras(w){
  const column=w.id.endsWith("p")?0:1;
  const ex=EXAMPLES[pi]?.[column]||"";
  const translation=EXAMPLE_ZH[pi]?.[column]||"";
- return '<div class="learn-extra"><div class="muted">發音口音（依裝置語音支援）</div><div class="accent-row">'+ACCENTS.map(([name,locale])=>'<button class="accent-btn '+(accent===locale?"active":"")+'" data-accent="'+locale+'">'+name+'</button>').join("")+'</div><p id="voice-note" class="muted" hidden>此裝置可能未提供全部四種口音。</p><div class="example"><strong>TOEIC 情境例句</strong><p class="muted">中文翻譯</p><p>'+escape(translation)+'</p><button class="secondary" id="reveal-example" type="button" aria-expanded="false">顯示英文例句</button><div id="english-example" hidden><p lang="en">'+escape(ex)+'</p><button class="secondary" id="example-speak">🔊 播放英文例句</button></div></div></div>';
+ return '<div class="learn-extra"><div class="muted">發音口音（依裝置語音支援）</div><div class="accent-row">'+ACCENTS.map(([name,locale])=>'<button class="accent-btn '+(accent===locale?"active":"")+'" data-accent="'+locale+'">'+name+'</button>').join("")+'</div><p id="voice-note" class="muted" hidden>此裝置可能未提供全部四種口音。</p><div class="example"><p>'+escape(translation)+'</p><button class="secondary" id="reveal-example" type="button" aria-expanded="false">練習翻譯成英文</button><div id="english-example" hidden><p lang="en">'+escape(ex)+'</p><button class="secondary" id="example-speak">🔊 播放英文例句</button></div></div></div>';
 }
 function bindLearningExtras(w){
  document.querySelectorAll("[data-accent]").forEach(b=>b.onclick=()=>{accent=b.dataset.accent;localStorage.setItem("toeic-accent",accent);document.querySelectorAll("[data-accent]").forEach(x=>x.classList.toggle("active",x.dataset.accent===accent));speak(w.en,accent)});
  const example=EXAMPLES[UNIT.pairs.findIndex(p=>w.id.startsWith(p.id))]?.[w.id.endsWith("p")?0:1];
  const reveal=document.querySelector("#reveal-example"),english=document.querySelector("#english-example");
- if(reveal&&english)reveal.onclick=()=>{english.hidden=!english.hidden;reveal.textContent=english.hidden?"顯示英文例句":"隱藏英文例句";reveal.setAttribute("aria-expanded",String(!english.hidden))};
+ if(reveal&&english)reveal.onclick=()=>{english.hidden=!english.hidden;reveal.textContent=english.hidden?"練習翻譯成英文":"收起英文答案";reveal.setAttribute("aria-expanded",String(!english.hidden))};
  const b=document.querySelector("#example-speak");if(b&&example)b.onclick=()=>speak(example);
 }
 

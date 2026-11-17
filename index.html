@@ -222,8 +222,8 @@ function bindSpelling(w,prefix,onChecked){
  shuffle(tiles);let chosen=[],submitted=false;
  const board=form.querySelector(".letter-board"),slots=form.querySelector(".spelling-slots"),feedback=form.querySelector(".spelling-feedback");
  function draw(){
-  const typed=chosen.map(id=>tiles.find(t=>t.id===id).char).join(""),target=w.en,visible=hint+typed;slots.replaceChildren();
-  for(let i=0;i<target.length;i++){const el=document.createElement("span");el.textContent=target[i]===" "?" ":visible[i]||"　";if(i<hint.length)el.className="fixed";if(target[i]===" ")el.className="space";slots.appendChild(el)}
+  const typed=chosen.map(id=>tiles.find(t=>t.id===id).char).join(""),target=w.en;slots.replaceChildren();let letterIndex=0;
+  for(let i=0;i<target.length;i++){const el=document.createElement("span");if(target[i]===" "){el.textContent=" ";el.className="space"}else{el.textContent=i<hint.length?target[i]:(typed[letterIndex++]||"　");if(i<hint.length)el.className="fixed"}slots.appendChild(el)}
   board.replaceChildren();for(const tile of tiles){const b=document.createElement("button");b.type="button";b.textContent=tile.char;b.disabled=submitted||chosen.includes(tile.id);b.setAttribute("aria-label","字母 "+tile.char);b.onclick=()=>{chosen.push(tile.id);draw()};board.appendChild(b)}
  }
  form.querySelector("[data-spell-delete]").onclick=()=>{if(!submitted){chosen.pop();draw()}};

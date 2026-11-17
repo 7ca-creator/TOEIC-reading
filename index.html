@@ -33,6 +33,50 @@ function bindLearningExtras(w){
  const saveBtn=document.querySelector("#save-example");if(saveBtn)saveBtn.onclick=()=>{toggleSavedExample(w);saveBtn.textContent=savedExample(w)?"★ 已收藏":"☆ 收藏";saveBtn.setAttribute("aria-pressed",String(savedExample(w)))};
 }
 
+const PAGE_ID="grammar-s4-ch10-p134";
+const PAGES=[{id:PAGE_ID,section:"Grammar Section 4",chapter:"Ch10 名詞",page:"p.134",title:UNIT.title,pairs:UNIT.pairs}];
+const words=PAGES.flatMap(p=>p.pairs.flatMap((pair,i)=>[{id:pair.id+"p",en:pair.person,zh:pair.personZh,pageId:p.id,pair:i,type:"person"},{id:pair.id+"a",en:pair.abstract,zh:pair.abstractZh,pageId:p.id,pair:i,type:"abstract"}]));
+const GROUP_SIZE=5;
+let currentPage=PAGE_ID,cardBatch=[],cardIndex=0,quizType="meaning",listFilter="all",listSearch="";
+const oldSave=save;
+function saveProgress(){oldSave();sync()}
+function mastery(id){return state.results[id]?.level||"new"}
+function nextDue(id){const r=state.results[id];return r?.due?new Date(r.due).getTime():0}
+function due(w){return mastery(w.id)!=="new"&&nextDue(w.id)<=Date.now()}
+function setLevel(id,level){
+ const r=state.results[id]||{correct:0,wrong:0};
+ const prev=r.level||"new",now=Date.now(),interval=level==="unknown"?0:level==="fuzzy"?1:prev==="mastered"?Math.min((r.interval||3)*2,30):3;
+ r.level=level;r.interval=interval;r.due=new Date(now+(level==="unknown"?10/1440:interval)*86400000).toISOString();r.last=new Date(now).toISOString();
+ r.selfReviews=(r.selfReviews||0)+1;
+ state.results[id]=r;saveProgress()
+}
+function record(id,ok){const r=state.results[id]||{correct:0,wrong:0};r[ok?"correct":"wrong"]++;r.last=new Date().toISOString();if(!ok){r.level="unknown";r.due=new Date(Date.now()+600000).toISOString()}state.results[id]=r;saveProgress()}
+function pageWords(pageId=currentPage){return words.filter(w=>pageId==="all"||w.pageId===pageId)}
+function groupBatch(){const groups=UNIT.pairs.map((p,i)=>({i,items:words.filter(w=>w.pageId===currentPage&&w.pair===i)}));const unseen=groups.filter(g=>g.items.some(w=>mastery(w.id)==="new"));const pending=groups.filter(g=>!unseen.includes(g)&&g.items.some(w=>due(w)));const others=groups.filter(g=>!unseen.includes(g)&&!pending.includes(g));const age=g=>Math.min(...g.items.map(w=>new Date(state.results[w.id]?.last||0).getTime()));pending.sort((a,b)=>age(a)-age(b));others.sort((a,b)=>age(a)-age(b));const chosen=[...pending.slice(0,2),...unseen.slice(0,3)];for(const g of [...pending,...unseen,...others]){if(chosen.length>=GROUP_SIZE)break;if(!chosen.includes(g))chosen.push(g)}return chosen.flatMap(g=>g.items)}
+function startCards(batch=groupBatch()){cardBatch=batch;cardIndex=0;show=false;mode="cards";render()}
+const GRAMMAR=[
+ ["The ______ reviewed the company's financial statements.","accountant","account","會計師審閱了公司的財務報表。"],
+ ["All job ______ must be submitted by Friday.","applications","applicants","所有求職申請都必須在星期五前提交。"],
+ ["The hotel reported an increase in ______ during the holiday season.","occupancy","occupant","飯店表示假日期間住房率有所增加。"],
+ ["The ______ will meet with the marketing team tomorrow.","consultant","consultation","顧問明天將與行銷團隊開會。"],
+ ["The ______ of the new products will begin next month.","production","producer","新產品將於下個月開始生產。"],
+ ["The ______ greeted visitors at the front desk.","receptionist","reception","接待員在櫃台迎接訪客。"],
+ ["The company announced a new ______ campaign.","recruitment","recruiter","公司宣布了新的招募活動。"],
+ ["The financial ______ was completed yesterday.","analysis","analyst","財務分析已於昨天完成。"],
+ ["The project requires close ______ among departments.","coordination","coordinator","這項專案需要各部門密切協調。"],
+ ["The ______ inspected the equipment before use.","engineer","engineering","工程師在使用前檢查了設備。"],
+ ["Employee ______ in the survey is voluntary.","participation","participant","員工可以自由選擇是否參與調查。"],
+ ["The ______ presented the quarterly sales results.","manager","management","經理報告了季度銷售結果。"],
+ ["The company increased its ______ in renewable energy.","investment","investor","公司增加了再生能源方面的投資。"],
+ ["The ______ will supervise the installation process.","technician","technology","技術人員將監督安裝流程。"],
+ ["All employees must follow the ______ provided by the supervisor.","instructions","instructors","所有員工都必須遵循主管提供的指示。"],
+ ["The ______ of the contract took several weeks.","negotiation","negotiator","合約談判花了好幾週。"],
+ ["The ______ checked the building for safety hazards.","inspector","inspection","檢查員檢查了建築物是否有安全隱患。"],
+ ["The company's ______ has grown significantly this year.","distribution","distributor","公司的配送業務今年大幅成長。"],
+ ["The ______ answered questions from the audience.","presenter","presentation","簡報者回答了觀眾的問題。"],
+ ["The ______ of the new policy requires approval.","implementation","implementer","新政策的實施需要核准。"]
+];
+function startGrammar(){quizType="grammar";quiz=GRAMMAR.filter(q=>q[1]!=="implementation").sort(()=>Math.random()-.5).slice(0,10).map(q=>({sentence:q[0],opts:[q[1],q[2]].sort(()=>Math.random()-.5),answer:q[1],translation:q[3]}));qi=0;selected=null;finished=false;session=[];mode="grammar";render()}
 const SUPABASE_URL="https://hcogdrrtdxmdccayzxdy.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_44UFaRhUXNbBf_BENBdQTw_LcYIUDhj";
 async function initAuth(){

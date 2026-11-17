@@ -16,7 +16,7 @@
 .level-legend{display:flex;gap:9px 14px;flex-wrap:wrap;font-size:12px;color:#39485a;margin:6px 0 12px}
 .level-legend span{display:inline-flex;gap:5px;align-items:center}.level-legend i{width:11px;height:11px;border-radius:50%;display:inline-block}
 .unit-card{overflow:hidden}.unit-progress-label{margin-top:8px}.unit-actions button{min-height:48px}.filter-tabs{max-width:100%;margin-right:0}.filter-tabs:focus-within{scrollbar-width:auto}.filter-tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #3a85b5;outline-offset:3px}.vocab-row{gap:12px}.vocab-row>div{min-width:0;overflow-wrap:anywhere}.vocab-row button{min-width:64px}.unit-card h2{overflow-wrap:anywhere}.home-tools button{min-height:48px}@media(max-width:420px){.unit-actions{gap:8px}.unit-actions button{padding:11px 7px;font-size:14px}.filter-tab{padding:9px 12px}.unit-card{padding:18px}.vocab-row{align-items:center}}</style></head><body><main><header><div class="brand">TOEIC / READING</div><button id="auth" class="secondary">Google 登入</button></header><div id="app"></div><footer>Grammar Section 4 · Ch10 名詞 · p.134 · 第 04 單元單字內容尚待核對。登入 Google 後可同步學習進度。<div style="margin-top:12px;font-size:12px;color:#697687"><span id="build-stamp">版本載入中…</span></div></footer></main><script type="module">
-const BUILD_ID="a6f35eda · QA 色彩修正";
+const BUILD_ID="qa-sync-notebook-20261117";
 const BUILD_TIME="2026-11-17T22:00:07+08:00";
 const stamp=document.querySelector("#build-stamp");
 if(stamp)stamp.textContent="最後更新："+new Intl.DateTimeFormat("zh-TW",{timeZone:"Asia/Taipei",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date(BUILD_TIME))+"（台灣時間） · "+BUILD_ID;
@@ -155,8 +155,19 @@ function updateAuth(){
     }
   };
 }
-async function pull(){if(!user||!supabase)return;const {data,error}=await supabase.from("study_progress").select("payload").eq("user_id",user.id).eq("unit_id",UNIT.id).maybeSingle();if(error){console.warn(error);return}if(data?.payload){for(const [k,r] of Object.entries(data.payload.results||{})){const local=state.results[k];if(!local||((r.last||"")>(local.last||"")))state.results[k]=r}state.savedExamples={...(data.payload.savedExamples||{}),...(state.savedExamples||{})};state.grammarErrors={...(data.payload.grammarErrors||{}),...(state.grammarErrors||{})};state.savedMistakes={...(data.payload.savedMistakes||{}),...(state.savedMistakes||{})};state.sessions=[...new Map([...(data.payload.sessions||[]),...state.sessions].map(x=>[JSON.stringify(x),x])).values()].slice(-100);save()}await sync();render()}
-let syncing=false,syncPending=false;
+async function pull(){if(!user||!supabase)return;const {data,error}=await supabase.from("study_progress").select("payload").eq("user_id",user.id).eq("unit_id",UNIT.id).maybeSingle();if(error){console.warn(error);syncStatus("讀取雲端進度失敗，請檢查網路後重試。","error");return}if(data?.payload){for(const [k,r] of Object.entries(data.payload.results||{})){const local=state.results[k];if(!local||((r.last||"")>(local.last||"")))state.results[k]=r}state.savedExamples={...(data.payload.savedExamples||{}),...(state.savedExamples||{})};state.grammarErrors={...(data.payload.grammarErrors||{}),...(state.grammarErrors||{})};state.savedMistakes={...(data.payload.savedMistakes||{}),...(state.savedMistakes||{})};state.sessions=[...new Map([...(data.payload.sessions||[]),...state.sessions].map(x=>[JSON.stringify(x),x])).values()].slice(-100);save()}await sync();render()}
+let syncing=false,syncPending=false,syncRetryTimer=null;
+function syncStatus(message,kind="info"){
+ let el=document.querySelector("#sync-status");
+ if(!el){el=document.createElement("div");el.id="sync-status";el.setAttribute("role","status");el.style.cssText="position:fixed;bottom:calc(12px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:40;max-width:calc(100vw - 28px);border-radius:12px;padding:10px 14px;font-size:13px;box-shadow:0 3px 16px #17233325;background:#fff;color:#263347;border:1px solid #d8dfe5;display:flex;gap:10px;align-items:center";document.body.appendChild(el)}
+ el.replaceChildren();
+ const msg=document.createElement("span");msg.textContent=message;el.appendChild(msg);
+ if(kind==="error"){el.style.borderColor="#c97b7b";const b=document.createElement("button");b.textContent="重試同步";b.style.cssText="font-size:12px;padding:7px 10px;min-height:36px";b.onclick=()=>sync();el.appendChild(b)}
+ else el.style.borderColor="#d8dfe5";
+ if(kind==="ok")setTimeout(()=>{if(el.textContent===message)el.remove()},3000);
+}
+window.addEventListener("online",()=>{if(syncPending)sync()});
+
 async function sync(){
  if(!user||!supabase)return;
  syncPending=true;if(syncing)return;
@@ -164,9 +175,11 @@ async function sync(){
  try{
   while(syncPending&&user&&supabase){
    syncPending=false;
+   syncStatus("正在同步學習進度…");
    const uid=user.id,payload=JSON.parse(JSON.stringify(state));
    const {error}=await supabase.from("study_progress").upsert({user_id:uid,unit_id:UNIT.id,payload,updated_at:new Date().toISOString()},{onConflict:"user_id,unit_id"});
-   if(error){console.warn("學習進度同步失敗",error);syncPending=true;break}
+   if(error){console.warn("學習進度同步失敗",error);syncPending=true;syncStatus("雲端同步失敗，資料已保存在此裝置。","error");break}
+   syncStatus("學習進度已同步","ok");
   }
  }finally{syncing=false}
 }
@@ -210,13 +223,13 @@ function notebookView(){
  const wordErrors=words.filter(w=>(state.results[w.id]?.wrong||0)>0).map(w=>({kind:"meaning",id:w.id,word:w,last:state.results[w.id]?.last||"",wrong:state.results[w.id]?.wrong||0}));
  const grammarErrors=Object.entries(state.grammarErrors||{}).filter(([,r])=>(r.wrong||0)>0).map(([id,r])=>({kind:"grammar",id,last:r.last||"",wrong:r.wrong||0,data:r}));
  const all=[...wordErrors,...grammarErrors],total=all.length;
- let entries=all.filter(e=>(!notebookOnlyWrong||e.wrong>0)&&(!notebookOnlySaved||(e.kind==="grammar"?!!state.savedMistakes?.[e.id]:savedExample(e.word)))&&(notebookFilter==="all"||e.kind==="meaning"&&matchLevel(e.word,notebookFilter)));
+ let entries=all.filter(e=>(!notebookOnlyWrong||e.wrong>0)&&(!notebookOnlySaved||(e.kind==="grammar"?!!state.savedMistakes?.[e.id]:!!state.savedMistakes?.[e.id]))&&(notebookFilter==="all"||e.kind==="meaning"&&matchLevel(e.word,notebookFilter)));
  entries.sort((a,b)=>notebookSort==="oldest"?a.last.localeCompare(b.last):b.last.localeCompare(a.last));
- const cards=entries.map(e=>{const saved=e.kind==="grammar"?!!state.savedMistakes?.[e.id]:savedExample(e.word),label=e.kind==="grammar"?"閱讀 · TOEIC 文法填空":"閱讀 · 單字選擇題",preview=e.kind==="grammar"?e.data.sentence:e.word.en,detail=e.kind==="grammar"?"正確答案："+e.data.answer:e.word.zh;return '<article class="error-card"><div class="error-card-top"><span>'+label+'</span><button type="button" data-save-error="'+escape(e.id)+'" class="error-star" aria-label="收藏或取消收藏">'+(saved?"★":"☆")+'</button></div><div class="error-card-body"><strong>'+escape(preview)+'</strong><p>'+escape(detail)+'</p><span class="muted">答錯 '+e.wrong+' 次</span><div class="error-card-action"><button class="secondary" data-review-error="'+escape(e.id)+'">去複習 ›</button></div></div></article>'}).join("");
+ const cards=entries.map(e=>{const saved=!!state.savedMistakes?.[e.id],label=e.kind==="grammar"?"閱讀 · TOEIC 文法填空":"閱讀 · 單字選擇題",preview=e.kind==="grammar"?e.data.sentence:e.word.en,detail=e.kind==="grammar"?"正確答案："+e.data.answer:e.word.zh;return '<article class="error-card"><div class="error-card-top"><span>'+label+'</span><button type="button" data-save-error="'+escape(e.id)+'" class="error-star" aria-label="收藏或取消收藏">'+(saved?"★":"☆")+'</button></div><div class="error-card-body"><strong>'+escape(preview)+'</strong><p>'+escape(detail)+'</p><span class="muted">答錯 '+e.wrong+' 次</span><div class="error-card-action"><button class="secondary" data-review-error="'+escape(e.id)+'">去複習 ›</button></div></div></article>'}).join("");
  shell("錯題本",'<p class="muted">僅收錄 TOEIC 文法填空、單字選擇題的答錯紀錄 · '+total+' 題</p><div class="panel"><div class="notebook-controls"><label><input type="checkbox" id="only-wrong" '+(notebookOnlyWrong?"checked":"")+'> 只看錯題</label><label><input type="checkbox" id="only-saved" '+(notebookOnlySaved?"checked":"")+'> 只看收藏</label></div><div class="notebook-sort"><label for="sort-errors">排序</label><select id="sort-errors"><option value="newest">由新到舊</option><option value="oldest">由舊到新</option></select></div>'+filterTabs(notebookFilter,"data-notebook-tab")+'<div id="notebook-list">'+(entries.length?cards:'<p class="muted">目前沒有符合條件的錯題。</p>')+'</div>'+(entries.length?'<button id="review-errors">複習以上題目 ('+entries.length+')</button>':'')+'</div>');
  $("#only-wrong").onchange=e=>{notebookOnlyWrong=e.target.checked;render()};$("#only-saved").onchange=e=>{notebookOnlySaved=e.target.checked;render()};$("#sort-errors").value=notebookSort;$("#sort-errors").onchange=e=>{notebookSort=e.target.value;render()};
  document.querySelectorAll("[data-notebook-tab]").forEach(b=>b.onclick=()=>{notebookFilter=b.dataset.notebookTab;render()});
- document.querySelectorAll("[data-save-error]").forEach(b=>b.onclick=()=>{const id=b.dataset.saveError;if(id.startsWith("grammar:")){state.savedMistakes||={};if(state.savedMistakes[id])delete state.savedMistakes[id];else state.savedMistakes[id]=true;saveProgress()}else{const w=words.find(w=>w.id===id);if(w)toggleSavedExample(w)}render()});
+ document.querySelectorAll("[data-save-error]").forEach(b=>b.onclick=()=>{const id=b.dataset.saveError;if(id.startsWith("grammar:")){state.savedMistakes||={};if(state.savedMistakes[id])delete state.savedMistakes[id];else state.savedMistakes[id]=true;saveProgress()}else{state.savedMistakes||={};if(state.savedMistakes[id])delete state.savedMistakes[id];else state.savedMistakes[id]=true;saveProgress()}render()});
  function review(e){if(e.kind==="meaning")startQuiz([e.word]);else startGrammar([e.data])}
  document.querySelectorAll("[data-review-error]").forEach(b=>b.onclick=()=>{const e=entries.find(x=>x.id===b.dataset.reviewError);if(e)review(e)});
  if($("#review-errors"))$("#review-errors").onclick=()=>{const first=entries[0];if(first){const same=entries.filter(e=>e.kind===first.kind).slice(0,10);if(first.kind==="meaning")startQuiz(same.map(e=>e.word));else startGrammar(same.map(e=>e.data))}}
